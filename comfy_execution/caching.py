@@ -52,9 +52,6 @@ class CacheKeySet(ABC):
 
     def is_key_updated(self, node_id) -> bool:
         return True
-    
-    def is_key_updatable(self, node_id) -> bool:
-        return False
 
 class Unhashable:
     def __init__(self):
@@ -127,12 +124,6 @@ class CacheKeySetUpdatableInputSignature(CacheKeySet):
 
     def is_key_updated(self, node_id):
         return node_id in self.updated_node_ids
-
-    def is_key_updatable(self, node_id):
-        _, missing_keys, _ = self.is_changed.get_input_data(node_id)
-        if missing_keys:
-            return False
-        return True
 
     async def add_keys(self, node_ids):
         """Initialize keys."""
@@ -301,10 +292,6 @@ class BasicCache:
     def _is_key_updated_immediate(self, node_id):
         """False if the cache key set is an updatable type and it hasn't been updated yet."""
         return self.cache_key_set.is_key_updated(node_id)
-    
-    def _is_key_updatable_immediate(self, node_id):
-        """True if the cache key set is an updatable type and it can be updated properly."""
-        return self.cache_key_set.is_key_updatable(node_id)
 
     def _set_immediate(self, node_id, value):
         assert self.initialized
@@ -394,11 +381,6 @@ class HierarchicalCache(BasicCache):
         assert cache is not None
         return cache._is_key_updated_immediate(node_id)
 
-    def is_key_updatable(self, node_id):
-        cache = self._get_cache_for(node_id)
-        assert cache is not None
-        return cache._is_key_updatable_immediate(node_id)
-
 class NullCache:
     async def set_prompt(self, dynprompt, node_ids, is_changed):
         pass
@@ -426,9 +408,6 @@ class NullCache:
         
     def is_key_updated(self, node_id):
         return True
-
-    def is_key_updatable(self, node_id):
-        return False
 
 class LRUCache(BasicCache):
     def __init__(self, key_class, max_size=100):
@@ -489,10 +468,6 @@ class LRUCache(BasicCache):
     def is_key_updated(self, node_id):
         self._mark_used(node_id)
         return self._is_key_updated_immediate(node_id)
-
-    def is_key_updatable(self, node_id):
-        self._mark_used(node_id)
-        return self._is_key_updatable_immediate(node_id)
 
 
 #Iterating the cache for usage analysis might be expensive, so if we trigger make sure
