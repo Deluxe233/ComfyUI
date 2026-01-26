@@ -157,7 +157,7 @@ class CacheKeySetUpdatableInputSignature(CacheKeySet):
             assert ancestor_id in self.node_sig_cache
             signatures.append(self.node_sig_cache[ancestor_id])
         
-        logging.debug(f"signature for {node_id}:\n{signatures}")
+        logging.debug(f"signature for node {node_id}: {signatures}")
         return to_hashable(signatures)
 
     async def get_immediate_node_signature(self, node_id, ancestor_order_mapping: dict, inputs: dict):
@@ -202,6 +202,11 @@ class CacheKeySetUpdatableInputSignature(CacheKeySet):
         return ancestors, order_mapping, input_hashes
 
     def get_ordered_ancestry_internal(self, node_id):
+        def get_hashable(obj):
+            try:
+                return throw_on_unhashable(obj)
+            except:
+                return Unhashable
         ancestors = []
         input_hashes = {}
 
@@ -214,26 +219,25 @@ class CacheKeySetUpdatableInputSignature(CacheKeySet):
         input_data_all, _, _ = self.is_changed.get_input_data(node_id)
         inputs = self.dynprompt.get_node(node_id)["inputs"]
         for key in sorted(inputs.keys()):
-            input = inputs[key]
             if key in input_data_all:
-                if is_link(input):
-                    ancestor_id = input[0]
-                    try:
-                        # Replace link with input's hash
-                        hashable = throw_on_unhashable(input_data_all[key])
-                        input_hashes[key] = hash(hashable)
-                    except:
+                if is_link(inputs[key]):
+                    ancestor_id = inputs[key][0]
+                    hashable = get_hashable(input_data_all[key])
+                    if hashable is Unhashable or is_link(input_data_all[key]):
                         # Link still needed
-                        input_hashes[key] = input
+                        input_hashes[key] = inputs[key]
                         if ancestor_id not in ancestors:
                             ancestors.append(ancestor_id)
-                else:
-                    try:
-                        hashable = throw_on_unhashable(input)
+                    else:
+                        # Replace link with input's hash
                         input_hashes[key] = hash(hashable)
-                    except:
-                        logging.warning(f"Node {node_id} cannot be cached due to whatever this thing is: {input}")
+                else:
+                    hashable = get_hashable(inputs[key])
+                    if hashable is Unhashable:
+                        logging.warning(f"Node {node_id} cannot be cached due to whatever this thing is: {inputs[key]}")
                         input_hashes[key] = Unhashable()
+                    else:
+                        input_hashes[key] = hash(hashable)
         
         self.ancestry_cache[node_id] = ancestors
         return self.ancestry_cache[node_id], input_hashes
