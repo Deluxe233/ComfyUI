@@ -26,7 +26,6 @@ class CacheKeySet(ABC):
     def __init__(self, dynprompt, node_ids, is_changed):
         self.keys = {}
         self.subcache_keys = {}
-        self.clean_when = None
 
     @abstractmethod
     async def add_keys(self, node_ids):
@@ -85,7 +84,6 @@ class CacheKeySetID(CacheKeySet):
     def __init__(self, dynprompt, node_ids, is_changed):
         super().__init__(dynprompt, node_ids, is_changed)
         self.dynprompt = dynprompt
-        self.clean_when = "before"
 
     async def add_keys(self, node_ids):
         for node_id in node_ids:
@@ -97,12 +95,11 @@ class CacheKeySetID(CacheKeySet):
             self.keys[node_id] = (node_id, node["class_type"])
             self.subcache_keys[node_id] = (node_id, node["class_type"])
 
-class CacheKeySetUpdatableInputSignature(CacheKeySet):
+class CacheKeySetInputSignature(CacheKeySet):
     def __init__(self, dynprompt, node_ids, is_changed):
         super().__init__(dynprompt, node_ids, is_changed)
         self.dynprompt: DynamicPrompt = dynprompt
         self.is_changed = is_changed
-        self.clean_when = "after"
 
         self.updated_node_ids = set()
         self.node_sig_cache = {}
@@ -241,13 +238,11 @@ class BasicCache:
         self.cache_key_set: CacheKeySet
         self.cache = {}
         self.subcaches = {}
-        self.clean_when = "before"
 
     async def set_prompt(self, dynprompt, node_ids, is_changed):
         self.dynprompt = dynprompt
         self.cache_key_set = self.key_class(dynprompt, node_ids, is_changed)
         await self.cache_key_set.add_keys(node_ids)
-        self.clean_when = self.cache_key_set.clean_when or "before"
         self.is_changed = is_changed
         self.initialized = True
 

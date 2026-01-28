@@ -18,7 +18,7 @@ import nodes
 from comfy_execution.caching import (
     BasicCache,
     CacheKeySetID,
-    CacheKeySetUpdatableInputSignature,
+    CacheKeySetInputSignature,
     NullCache,
     HierarchicalCache,
     LRUCache,
@@ -113,15 +113,15 @@ class CacheSet:
 
     # Performs like the old cache -- dump data ASAP
     def init_classic_cache(self):
-        self.outputs = HierarchicalCache(CacheKeySetUpdatableInputSignature)
+        self.outputs = HierarchicalCache(CacheKeySetInputSignature)
         self.objects = HierarchicalCache(CacheKeySetID)
 
     def init_lru_cache(self, cache_size):
-        self.outputs = LRUCache(CacheKeySetUpdatableInputSignature, max_size=cache_size)
+        self.outputs = LRUCache(CacheKeySetInputSignature, max_size=cache_size)
         self.objects = HierarchicalCache(CacheKeySetID)
 
     def init_ram_cache(self, min_headroom):
-        self.outputs = RAMPressureCache(CacheKeySetUpdatableInputSignature)
+        self.outputs = RAMPressureCache(CacheKeySetInputSignature)
         self.objects = HierarchicalCache(CacheKeySetID)
 
     def init_null_cache(self):
@@ -575,9 +575,7 @@ async def execute(server: PromptServer, dynprompt: DynamicPrompt, caches: CacheS
                     cached_outputs.append((True, node_outputs))
             new_node_ids = set(new_node_ids)
             for cache in caches.all:
-                subcache = await cache.ensure_subcache_for(unique_id, new_node_ids)
-                if subcache.clean_when == "before":
-                    subcache.clean_unused()
+                await cache.ensure_subcache_for(unique_id, new_node_ids)
             for node_id in new_output_ids:
                 execution_list.add_node(node_id)
                 execution_list.cache_link(node_id, unique_id)
@@ -706,15 +704,6 @@ class PromptExecutor:
             is_changed = IsChanged(prompt_id, dynamic_prompt, execution_list, extra_data)
             for cache in self.caches.all:
                 await cache.set_prompt(dynamic_prompt, prompt.keys(), is_changed)
-                if cache.clean_when == "before":
-                    cache.clean_unused()
-
-            if self.caches.outputs.clean_when == "before":
-                cached_nodes = []
-                for node_id in prompt:
-                    if self.caches.outputs.get(node_id) is not None:
-                        cached_nodes.append(node_id)
-                self.add_message("execution_cached", {"nodes": cached_nodes, "prompt_id": prompt_id}, broadcast=False)
 
             comfy.model_management.cleanup_models_gc()
             pending_subgraph_results = {}
@@ -760,8 +749,7 @@ class PromptExecutor:
                 comfy.model_management.unload_all_models()
             
             for cache in self.caches.all:
-                if cache.clean_when == "after":
-                    cache.clean_unused()
+                cache.clean_unused()
 
 async def validate_inputs(prompt_id, prompt, item, validated):
     unique_id = item
