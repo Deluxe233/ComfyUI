@@ -589,10 +589,13 @@ class TestExecution:
         assert len(images) == 1, "Should have 1 image"
         assert numpy.array(images[0]).min() == 127 and numpy.array(images[0]).max() == 127, "Image should have value 0.50"
 
+        assert result2.did_run(float1), "Float node should always run"
         if server["should_cache_results"]:
-            assert not result2.did_run(output), "Output node should not have run the second time"
+            assert not result2.did_run(image1), "Image node should not have run again"
+            assert not result2.did_run(output), "Output node should not have run again"
         else:
-            assert result2.did_run(output), "Output node should always run here"
+            assert result2.did_run(image1), "Image node should have run again"
+            assert result2.did_run(output), "Output node should have run again"
 
 
     def test_parallel_sleep_nodes(self, client: ComfyClient, builder: GraphBuilder, skip_timing_checks):
