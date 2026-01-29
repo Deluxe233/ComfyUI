@@ -536,7 +536,6 @@ async def execute(server: PromptServer, dynprompt: DynamicPrompt, caches: CacheS
                     unblock()
                 asyncio.create_task(await_completion())
                 return (ExecutionResult.PENDING, None, None)
-            
         if len(output_ui) > 0:
             ui_outputs[unique_id] = {
                 "meta": {
@@ -549,7 +548,6 @@ async def execute(server: PromptServer, dynprompt: DynamicPrompt, caches: CacheS
             }
             if server.client_id is not None:
                 server.send_sync("executed", { "node": unique_id, "display_node": display_node_id, "output": output_ui, "prompt_id": prompt_id }, server.client_id)
-        
         if has_subgraph:
             cached_outputs = []
             new_node_ids = []

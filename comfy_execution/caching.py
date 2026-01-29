@@ -103,15 +103,12 @@ class CacheKeySetInputSignature(CacheKeySet):
 
         self.updated_node_ids = set()
         self.node_sig_cache = {}
-        """Nodes' immediate node signatures."""
         self.ancestry_cache = {}
-        """List of a node's ancestors."""
 
     def include_node_id_in_input(self) -> bool:
         return False
     
     async def update_cache_key(self, node_id):
-        """Update key using cached outputs as part of the input signature."""
         if node_id in self.updated_node_ids:
             return
         if node_id not in self.keys:
@@ -123,7 +120,6 @@ class CacheKeySetInputSignature(CacheKeySet):
         return node_id in self.updated_node_ids
 
     async def add_keys(self, node_ids):
-        """Initialize keys."""
         for node_id in node_ids:
             if node_id in self.keys:
                 continue
@@ -211,7 +207,7 @@ class CacheKeySetInputSignature(CacheKeySet):
                 if is_link(inputs[key]):
                     ancestor_id = inputs[key][0]
                     hashable = get_hashable(input_data_all[key])
-                    if hashable is Unhashable or is_link(input_data_all[key]):
+                    if hashable is Unhashable or is_link(input_data_all[key][0]):
                         # Link still needed
                         node_inputs[key] = inputs[key]
                         if ancestor_id not in ancestors:
@@ -281,11 +277,9 @@ class BasicCache:
         pass
 
     async def _update_cache_key_immediate(self, node_id):
-        """Update the cache key for the node."""
         await self.cache_key_set.update_cache_key(node_id)
     
     def _is_key_updated_immediate(self, node_id):
-        """False if the cache key set is an updatable type and it hasn't been updated yet."""
         return self.cache_key_set.is_key_updated(node_id)
 
     def _set_immediate(self, node_id, value):
