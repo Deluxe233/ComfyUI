@@ -416,6 +416,7 @@ async def execute(server: PromptServer, dynprompt: DynamicPrompt, caches: CacheS
         if cached is not None:
             if server.client_id is not None:
                 cached_ui = cached.ui or {}
+                server.send_sync("execution_cached", { "nodes": [unique_id], "prompt_id": prompt_id}, server.client_id)
                 server.send_sync("executed", { "node": unique_id, "display_node": display_node_id, "output": cached_ui.get("output",None), "prompt_id": prompt_id }, server.client_id)
                 if cached.ui is not None:
                     ui_outputs[unique_id] = cached.ui
