@@ -235,9 +235,14 @@ class BasicCache:
         self.cache = {}
         self.subcaches = {}
 
+        self.node_sig_cache = {}
+        self.ancestry_cache = {}
+
     async def set_prompt(self, dynprompt, node_ids, is_changed):
         self.dynprompt = dynprompt
         self.cache_key_set = self.key_class(dynprompt, node_ids, is_changed)
+        self.cache_key_set.node_sig_cache = self.node_sig_cache
+        self.cache_key_set.ancestry_cache = self.ancestry_cache
         await self.cache_key_set.add_keys(node_ids)
         self.is_changed = is_changed
         self.initialized = True
@@ -270,6 +275,8 @@ class BasicCache:
 
     def clean_unused(self):
         assert self.initialized
+        self.node_sig_cache.clear()
+        self.ancestry_cache.clear()
         self._clean_cache()
         self._clean_subcaches()
 
@@ -302,6 +309,8 @@ class BasicCache:
         subcache = self.subcaches.get(subcache_key, None)
         if subcache is None:
             subcache = BasicCache(self.key_class)
+            subcache.node_sig_cache = self.node_sig_cache
+            subcache.ancestry_cache = self.ancestry_cache
             self.subcaches[subcache_key] = subcache
         await subcache.set_prompt(self.dynprompt, children_ids, self.is_changed)
         return subcache
@@ -414,6 +423,8 @@ class LRUCache(BasicCache):
             self._mark_used(node_id)
 
     def clean_unused(self):
+        self.node_sig_cache.clear()
+        self.ancestry_cache.clear()
         while len(self.cache) > self.max_size and self.min_generation < self.generation:
             self.min_generation += 1
             to_remove = [key for key in self.cache if self.used_generation[key] < self.min_generation]
@@ -480,6 +491,8 @@ class RAMPressureCache(LRUCache):
         self.timestamps = {}
 
     def clean_unused(self):
+        self.node_sig_cache.clear()
+        self.ancestry_cache.clear()
         self._clean_subcaches()
 
     def set(self, node_id, value):
