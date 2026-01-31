@@ -221,7 +221,7 @@ class CacheKeySetInputSignature(CacheKeySet):
                         logging.warning(f"Node {node_id} cannot be cached due to whatever this thing is: {inputs[key]}")
                         node_inputs[key] = Unhashable()
                     else:
-                        node_inputs[key] = inputs[key]
+                        node_inputs[key] = [inputs[key]]
         
         self.ancestry_cache[node_id] = ancestors
         return self.ancestry_cache[node_id], node_inputs
@@ -427,7 +427,7 @@ class LRUCache(BasicCache):
         self.ancestry_cache.clear()
         while len(self.cache) > self.max_size and self.min_generation < self.generation:
             self.min_generation += 1
-            to_remove = [key for key in self.cache if self.used_generation[key] < self.min_generation]
+            to_remove = [key for key in self.cache if key not in self.used_generation or self.used_generation[key] < self.min_generation]
             for key in to_remove:
                 del self.cache[key]
                 del self.used_generation[key]
@@ -462,8 +462,8 @@ class LRUCache(BasicCache):
         return self
     
     async def update_cache_key(self, node_id):
-        self._mark_used(node_id)
         await self._update_cache_key_immediate(node_id)
+        self._mark_used(node_id)
         
     def is_key_updated(self, node_id):
         self._mark_used(node_id)
