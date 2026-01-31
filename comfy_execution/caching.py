@@ -270,6 +270,8 @@ class BasicCache:
         for key in self.subcaches:
             if key not in preserve_subcaches:
                 to_remove.append(key)
+            else:
+                self.subcaches[key].clean_unused()
         for key in to_remove:
             del self.subcaches[key]
 
