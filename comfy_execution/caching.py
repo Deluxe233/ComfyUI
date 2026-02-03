@@ -3,7 +3,6 @@ import gc
 import itertools
 import psutil
 import time
-import logging
 import torch
 from typing import Sequence, Mapping, Dict
 from comfy_execution.graph import DynamicPrompt
@@ -14,6 +13,7 @@ import nodes
 from comfy_execution.graph_utils import is_link
 
 NODE_CLASS_CONTAINS_UNIQUE_ID: Dict[str, bool] = {}
+
 
 def include_unique_id_in_input(class_type: str) -> bool:
     if class_type in NODE_CLASS_CONTAINS_UNIQUE_ID:
@@ -98,9 +98,8 @@ class CacheKeySetID(CacheKeySet):
 class CacheKeySetInputSignature(CacheKeySet):
     def __init__(self, dynprompt, node_ids, is_changed):
         super().__init__(dynprompt, node_ids, is_changed)
-        self.dynprompt: DynamicPrompt = dynprompt
+        self.dynprompt = dynprompt
         self.is_changed = is_changed
-
         self.updated_node_ids = set()
         self.node_sig_cache = {}
         self.ancestry_cache = {}
@@ -134,37 +133,29 @@ class CacheKeySetInputSignature(CacheKeySet):
         ancestors, order_mapping, node_inputs = self.get_ordered_ancestry(node_id)
         self.node_sig_cache[node_id] = to_hashable(await self.get_immediate_node_signature(node_id, order_mapping, node_inputs))
         signatures.append(self.node_sig_cache[node_id])
-
         for ancestor_id in ancestors:
             assert ancestor_id in self.node_sig_cache
             signatures.append(self.node_sig_cache[ancestor_id])
-
         signatures = frozenset(zip(itertools.count(), signatures))
-        logging.debug(f"signature for node {node_id}: {signatures}")
         return signatures
 
-    async def get_immediate_node_signature(self, node_id, ancestor_order_mapping: dict, inputs: dict):
+    async def get_immediate_node_signature(self, node_id, ancestor_order_mapping, inputs):
         if not self.dynprompt.has_node(node_id):
             # This node doesn't exist -- we can't cache it.
             return [float("NaN")]
         node = self.dynprompt.get_node(node_id)
         class_type = node["class_type"]
         class_def = nodes.NODE_CLASS_MAPPINGS[class_type]
-
         signature = [class_type, await self.is_changed.get(node_id)]
-
         for key in sorted(inputs.keys()):
-            input = inputs[key]
-            if is_link(input):
-                (ancestor_id, ancestor_socket) = input
+            if is_link(inputs[key]):
+                (ancestor_id, ancestor_socket) = inputs[key]
                 ancestor_index = ancestor_order_mapping[ancestor_id]
                 signature.append((key,("ANCESTOR", ancestor_index, ancestor_socket)))
             else:
-                signature.append((key, input))
-
+                signature.append((key, inputs[key]))
         if self.include_node_id_in_input() or (hasattr(class_def, "NOT_IDEMPOTENT") and class_def.NOT_IDEMPOTENT) or include_unique_id_in_input(class_type):
             signature.append(node_id)
-        
         return signature
     
     def get_ordered_ancestry(self, node_id):
@@ -218,7 +209,6 @@ class CacheKeySetInputSignature(CacheKeySet):
                 else:
                     hashable = get_hashable(inputs[key])
                     if hashable is Unhashable:
-                        logging.warning(f"Node {node_id} cannot be cached due to whatever this thing is: {inputs[key]}")
                         node_inputs[key] = Unhashable()
                     else:
                         node_inputs[key] = [inputs[key]]
@@ -234,7 +224,6 @@ class BasicCache:
         self.cache_key_set: CacheKeySet
         self.cache = {}
         self.subcaches = {}
-
         self.node_sig_cache = {}
         self.ancestry_cache = {}
 
@@ -382,6 +371,7 @@ class HierarchicalCache(BasicCache):
         return cache._is_key_updated_immediate(node_id)
 
 class NullCache:
+
     async def set_prompt(self, dynprompt, node_ids, is_changed):
         pass
 
@@ -488,6 +478,7 @@ RAM_CACHE_DEFAULT_RAM_USAGE = 0.1
 RAM_CACHE_OLD_WORKFLOW_OOM_MULTIPLIER = 1.3
 
 class RAMPressureCache(LRUCache):
+
     def __init__(self, key_class):
         super().__init__(key_class, 0)
         self.timestamps = {}

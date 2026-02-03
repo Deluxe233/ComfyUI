@@ -36,7 +36,7 @@ from comfy_execution.progress import get_progress_state, reset_progress_state, a
 from comfy_execution.utils import CurrentNodeContext
 from comfy_api.internal import _ComfyNodeInternal, _NodeOutputInternal, first_real_override, is_class, make_locked_method_func
 from comfy_api.latest import io, _io
-from server import PromptServer
+
 
 class ExecutionResult(Enum):
     SUCCESS = 0
@@ -109,7 +109,7 @@ class CacheSet:
         else:
             self.init_classic_cache()
 
-        self.all: list[BasicCache, BasicCache] = [self.outputs, self.objects]
+        self.all = [self.outputs, self.objects]
 
     # Performs like the old cache -- dump data ASAP
     def init_classic_cache(self):
@@ -397,10 +397,7 @@ def format_value(x):
     else:
         return str(x)
 
-async def execute(server: PromptServer, dynprompt: DynamicPrompt, caches: CacheSet,
-                  current_item: str, extra_data: dict, executed: set, prompt_id: str,
-                  execution_list: ExecutionList, pending_subgraph_results: dict,
-                  pending_async_nodes: dict, ui_outputs: dict):
+async def execute(server, dynprompt, caches, current_item, extra_data, executed, prompt_id, execution_list, pending_subgraph_results, pending_async_nodes, ui_outputs):
     unique_id = current_item
     real_node_id = dynprompt.get_real_node_id(unique_id)
     display_node_id = dynprompt.get_display_node_id(unique_id)
@@ -408,11 +405,9 @@ async def execute(server: PromptServer, dynprompt: DynamicPrompt, caches: CacheS
     inputs = dynprompt.get_node(unique_id)['inputs']
     class_type = dynprompt.get_node(unique_id)['class_type']
     class_def = nodes.NODE_CLASS_MAPPINGS[class_type]
-
     if caches.outputs.is_key_updated(unique_id):
         # Key is updated, the cache can be checked.
         cached = caches.outputs.get(unique_id)
-        logging.debug(f"execute: {unique_id} cached: {cached is not None}")
         if cached is not None:
             if server.client_id is not None:
                 cached_ui = cached.ui or {}
@@ -481,7 +476,6 @@ async def execute(server: PromptServer, dynprompt: DynamicPrompt, caches: CacheS
                 lazy_status_present = first_real_override(class_def, "check_lazy_status") is not None
             else:
                 lazy_status_present = getattr(obj, "check_lazy_status", None) is not None
-
             if lazy_status_present:
                 # for check_lazy_status, the returned data should include the original key of the input
                 v3_data_lazy = v3_data.copy()
