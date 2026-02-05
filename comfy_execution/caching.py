@@ -200,7 +200,7 @@ class CacheKeySetInputSignature(CacheKeySet):
                 if is_link(inputs[key]):
                     ancestor_id = inputs[key][0]
                     hashable = get_hashable(input_data_all[key])
-                    if hashable is Unhashable or is_link(input_data_all[key][0]):
+                    if hashable is Unhashable or (input_data_all[key] and is_link(input_data_all[key][0])):
                         # Link still needed
                         node_inputs[key] = inputs[key]
                         if ancestor_id not in ancestors:
