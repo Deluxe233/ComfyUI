@@ -309,16 +309,17 @@ async def _async_map_node_over_list(prompt_id, unique_id, obj, input_data_all, f
     return results
 
 
-def merge_result_data(results, obj):
+def merge_result_data(results, obj, is_list_overrides=[]):
     # check which outputs need concatenating
     output = []
     output_is_list = [False] * len(results[0])
     if hasattr(obj, "OUTPUT_IS_LIST"):
         output_is_list = obj.OUTPUT_IS_LIST
+    is_list_override = is_list_overrides[0] if is_list_overrides else output_is_list
 
     # merge node execution results
-    for i, is_list in zip(range(len(results[0])), output_is_list):
-        if is_list:
+    for i, is_list, override in zip(range(len(results[0])), output_is_list, is_list_override):
+        if is_list or override:
             value = []
             for o in results:
                 if isinstance(o[i], ExecutionBlocker):
@@ -449,22 +450,35 @@ async def execute(server, dynprompt, caches, current_item, extra_data, executed,
         elif unique_id in pending_subgraph_results:
             cached_results = pending_subgraph_results[unique_id]
             resolved_outputs = []
+            is_list_overrides = []
             for is_subgraph, result in cached_results:
                 if not is_subgraph:
                     resolved_outputs.append(result)
                 else:
                     resolved_output = []
+                    is_list_override = []
                     for r in result:
                         if is_link(r):
                             source_node, source_output = r[0], r[1]
+                            _class_type = dynprompt.get_node(source_node)['class_type']
+                            _class_def = nodes.NODE_CLASS_MAPPINGS[_class_type]
+                            _source_is_list = False
+                            if hasattr(_class_def, "OUTPUT_IS_LIST"):
+                                _source_is_list = _class_def.OUTPUT_IS_LIST[source_output]
                             node_cached = execution_list.get_cache(source_node, unique_id)
-                            for o in node_cached.outputs[source_output]:
-                                resolved_output.append(o)
-
+                            if _source_is_list:
+                                resolved_output.append(node_cached.outputs[source_output])
+                                is_list_override.append(_source_is_list)
+                            else:
+                                for o in node_cached.outputs[source_output]:
+                                    resolved_output.append(o)
+                                    is_list_override.append(_source_is_list)
                         else:
                             resolved_output.append(r)
+                            is_list_override.append(False)
                     resolved_outputs.append(tuple(resolved_output))
-            output_data = merge_result_data(resolved_outputs, class_def)
+                    is_list_overrides.append(tuple(is_list_override))
+            output_data = merge_result_data(resolved_outputs, class_def, is_list_overrides)
             output_ui = []
             del pending_subgraph_results[unique_id]
             has_subgraph = False
