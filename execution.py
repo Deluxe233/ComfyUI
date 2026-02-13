@@ -474,7 +474,7 @@ async def execute(server, dynprompt, caches, current_item, extra_data, executed,
                                     node_cached = execution_list.get_cache(source_node, unique_id)
                                     _resolved.extend(node_cached.outputs[source_output])
                                 else:
-                                    _resolved.extend(output)
+                                    _resolved.append(output)
                             resolved_output.append(_resolved)
                     resolved_outputs.append(tuple(resolved_output))
             output_data = merge_result_data(resolved_outputs, class_def)
