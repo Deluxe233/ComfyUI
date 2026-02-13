@@ -522,6 +522,58 @@ class TestExecution:
         for i in range(3):
             assert numpy.array(images_literal[i]).min() == 255 and numpy.array(images_literal[i]).max() == 255, "All images should be white"
 
+    # Tests functionality of defining OUTPUT_IS_LIST for expanding nodes.
+    def test_output_is_list_expansion_results(self, client: ComfyClient, builder: GraphBuilder):
+        g = builder
+        list_out = g.node("TestListExpansionResult", value1=0.1)
+        output = g.node("SaveImage", images=list_out.out(0))
+        output_constant = g.node("SaveImage", images=list_out.out(1))
+
+        # return list of one image (list of one link)
+        result = client.run(g)
+        images = result.get_images(output)
+        assert len(images) == 1, "Should have 1 image"
+        assert numpy.array(images[0]).min() == 25 and numpy.array(images[0]).max() == 25, "First image should be 0.1"
+        images_constant = result.get_images(output_constant)
+        assert len(images_constant) == 1, "Should have 1 image"
+        assert numpy.array(images_constant[0]).min() == 255 and numpy.array(images_constant[0]).max() == 255, "Image should be white"
+
+        # test return list of two images (list of two links)
+        list_out.set_input("value2", 0.2)
+        result = client.run(g)
+        images = result.get_images(output)
+        assert len(images) == 2, "Should have 2 images"
+        assert numpy.array(images[0]).min() == 25 and numpy.array(images[0]).max() == 25, "First image should be 0.1"
+        assert numpy.array(images[1]).min() == 51 and numpy.array(images[1]).max() == 51, "Second image should be 0.2"
+        images_constant = result.get_images(output_constant)
+        assert len(images_constant) == 1, "Should have 1 image"
+        assert numpy.array(images_constant[0]).min() == 255 and numpy.array(images_constant[0]).max() == 255, "Image should be white"
+
+        # test mixed links and non-link values in returned list
+        list_out.set_input("value3", 0.3)
+        result = client.run(g)
+        images = result.get_images(output)
+        assert len(images) == 3, "Should have 3 images"
+        assert numpy.array(images[0]).min() == 25 and numpy.array(images[0]).max() == 25, "First image should be 0.1"
+        assert numpy.array(images[1]).min() == 51 and numpy.array(images[1]).max() == 51, "Second image should be 0.2"
+        assert numpy.array(images[2]).min() == 76 and numpy.array(images[2]).max() == 76, "Third image should be 0.3"
+        images_constant = result.get_images(output_constant)
+        assert len(images_constant) == 1, "Should have 1 image"
+        assert numpy.array(images_constant[0]).min() == 255 and numpy.array(images_constant[0]).max() == 255, "Image should be white"
+
+        # test returning list of a single link from an list output subnode
+        list_out.set_input("value4", 0.4)
+        result = client.run(g)
+        images = result.get_images(output)
+        assert len(images) == 4, "Should have 4 images"
+        assert numpy.array(images[0]).min() == 25 and numpy.array(images[0]).max() == 25, "First image should be 0.1"
+        assert numpy.array(images[1]).min() == 51 and numpy.array(images[1]).max() == 51, "Second image should be 0.2"
+        assert numpy.array(images[2]).min() == 76 and numpy.array(images[2]).max() == 76, "Third image should be 0.3"
+        assert numpy.array(images[3]).min() == 102 and numpy.array(images[3]).max() == 102, "Fourth image should be 0.4"
+        images_constant = result.get_images(output_constant)
+        assert len(images_constant) == 1, "Should have 1 image"
+        assert numpy.array(images_constant[0]).min() == 255 and numpy.array(images_constant[0]).max() == 255, "Image should be white"
+
     def test_mixed_lazy_results(self, client: ComfyClient, builder: GraphBuilder):
         g = builder
         val_list = g.node("TestMakeListNode", value1=0.0, value2=0.5, value3=1.0)

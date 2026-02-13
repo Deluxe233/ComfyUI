@@ -357,6 +357,65 @@ class TestMixedExpansionReturns:
                 "expand": g.finalize(),
             }
 
+class TestListExpansionResult:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "value1": ("FLOAT",),
+            },
+            "optional": {
+                "value2": ("FLOAT",),
+                "value3": ("FLOAT",),
+                "value4": ("FLOAT",),
+            },
+        }
+    
+    RETURN_TYPES = ("IMAGE", "IMAGE")
+    FUNCTION = "result_as_list"
+    OUTPUT_IS_LIST = (True, False)
+    
+    CATEGORY = "Testing/Nodes"
+
+    def result_as_list(self, **kwargs):
+        g = GraphBuilder()
+        values = []
+        for i in range(4):
+            key = f"value{i+1}"
+            if key in kwargs:
+                values.append(kwargs[key])
+        white = g.node("StubImage", content="WHITE", height=512, width=512, batch_size=1)
+        if len(values) == 1:
+            image1 = g.node("StubConstantImage", value=values[0], height=512, width=512, batch_size=1)
+            return {
+                "result": ([image1.out(0)], white.out(0)),
+                "expand": g.finalize(),
+            }
+        elif len(values) == 2:
+            image1 = g.node("StubConstantImage", value=values[0], height=512, width=512, batch_size=1)
+            image2 = g.node("StubConstantImage", value=values[1], height=512, width=512, batch_size=1)
+            return {
+                "result": ([image1.out(0), image2.out(0)], white.out(0)),
+                "expand": g.finalize(),
+            }
+        elif len(values) == 3:
+            image1 = g.node("StubConstantImage", value=values[0], height=512, width=512, batch_size=1)
+            image2 = g.node("StubConstantImage", value=values[1], height=512, width=512, batch_size=1)
+            image3 = torch.ones(1, 512, 512, 3) * values[2]
+            return {
+                "result": ([image1.out(0), image2.out(0), image3], white.out(0)),
+                "expand": g.finalize(),
+            }
+        elif len(values) == 4:
+            list_out = g.node("TestMakeListNode")
+            for i, value in enumerate(values):
+                image = g.node("StubConstantImage", value=value, height=512, width=512, batch_size=1)
+                list_out.set_input(f"value{i+1}", image.out(0))
+            return {
+                "result": ([list_out.out(0)], white.out(0)),
+                "expand": g.finalize(),
+            }
+
 class TestSamplingInExpansion:
     @classmethod
     def INPUT_TYPES(cls):
@@ -514,6 +573,7 @@ TEST_NODE_CLASS_MAPPINGS = {
     "TestCustomValidation5": TestCustomValidation5,
     "TestDynamicDependencyCycle": TestDynamicDependencyCycle,
     "TestMixedExpansionReturns": TestMixedExpansionReturns,
+    "TestListExpansionResult": TestListExpansionResult,
     "TestSamplingInExpansion": TestSamplingInExpansion,
     "TestSleep": TestSleep,
     "TestParallelSleep": TestParallelSleep,
@@ -533,6 +593,7 @@ TEST_NODE_DISPLAY_NAME_MAPPINGS = {
     "TestCustomValidation5": "Custom Validation 5",
     "TestDynamicDependencyCycle": "Dynamic Dependency Cycle",
     "TestMixedExpansionReturns": "Mixed Expansion Returns",
+    "TestListExpansionResult": "Output is List Expansion Result",
     "TestSamplingInExpansion": "Sampling In Expansion",
     "TestSleep": "Test Sleep",
     "TestParallelSleep": "Test Parallel Sleep",
