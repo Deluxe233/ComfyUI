@@ -359,35 +359,15 @@ class TestListExpansionResult:
     CATEGORY = "Testing/Nodes"
 
     def result_as_list(self, **kwargs):
-        g = GraphBuilder()
         values = []
         for i in range(4):
             key = f"value{i+1}"
             if key in kwargs:
                 values.append(kwargs[key])
+        g = GraphBuilder()
         white = g.node("StubImage", content="WHITE", height=512, width=512, batch_size=1)
-        if len(values) == 1:
-            image1 = g.node("StubConstantImage", value=values[0], height=512, width=512, batch_size=1)
-            return {
-                "result": ([image1.out(0)], white.out(0)),
-                "expand": g.finalize(),
-            }
-        elif len(values) == 2:
-            image1 = g.node("StubConstantImage", value=values[0], height=512, width=512, batch_size=1)
-            image2 = g.node("StubConstantImage", value=values[1], height=512, width=512, batch_size=1)
-            return {
-                "result": ([image1.out(0), image2.out(0)], white.out(0)),
-                "expand": g.finalize(),
-            }
-        elif len(values) == 3:
-            image1 = g.node("StubConstantImage", value=values[0], height=512, width=512, batch_size=1)
-            image2 = g.node("StubConstantImage", value=values[1], height=512, width=512, batch_size=1)
-            image3 = torch.ones(1, 512, 512, 3) * values[2]
-            return {
-                "result": ([image1.out(0), image2.out(0), image3], white.out(0)),
-                "expand": g.finalize(),
-            }
-        elif len(values) == 4:
+
+        if len(values) >= 4:
             list_out = g.node("TestMakeListNode")
             for i, value in enumerate(values):
                 image = g.node("StubConstantImage", value=value, height=512, width=512, batch_size=1)
@@ -396,6 +376,18 @@ class TestListExpansionResult:
                 "result": ([list_out.out(0)], white.out(0)),
                 "expand": g.finalize(),
             }
+        
+        images_out = []
+        if len(values) >= 1:
+            images_out.append(g.node("StubConstantImage", value=values[0], height=512, width=512, batch_size=1).out(0))
+        if len(values) >= 2:
+            images_out.append(g.node("StubConstantImage", value=values[1], height=512, width=512, batch_size=1).out(0))
+        if len(values) >= 3:
+            images_out.append(torch.ones(1, 512, 512, 3) * values[2])
+        return {
+            "result": (images_out, white.out(0)),
+            "expand": g.finalize(),
+        }
 
 class TestSamplingInExpansion:
     @classmethod

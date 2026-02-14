@@ -411,6 +411,35 @@ def format_value(x):
     else:
         return str(x)
 
+def resolve_subgraph_outputs(subgraph_results, unique_id, output_is_list, execution_list):
+    resolved_outputs = []
+    for is_subgraph, result in subgraph_results:
+        if not is_subgraph:
+            resolved_outputs.append(result)
+        else:
+            resolved_output = []
+            for i, _result in enumerate(result):
+                if not output_is_list[i]:
+                    if is_link(_result):
+                        source_node, source_output = _result[0], _result[1]
+                        node_cached = execution_list.get_cache(source_node, unique_id)
+                        if node_cached.outputs[source_output]:
+                            resolved_output.append(node_cached.outputs[source_output][0])
+                    else:
+                        resolved_output.append(_result)
+                else:
+                    _resolved = []
+                    for output in _result:
+                        if is_link(output):
+                            source_node, source_output = output[0], output[1]
+                            node_cached = execution_list.get_cache(source_node, unique_id)
+                            _resolved.extend(node_cached.outputs[source_output])
+                        else:
+                            _resolved.append(output)
+                    resolved_output.append(_resolved)
+            resolved_outputs.append(tuple(resolved_output))
+    return resolved_outputs
+
 async def execute(server, dynprompt, caches, current_item, extra_data, executed, prompt_id, execution_list, pending_subgraph_results, pending_async_nodes, ui_outputs):
     unique_id = current_item
     real_node_id = dynprompt.get_real_node_id(unique_id)
@@ -451,32 +480,7 @@ async def execute(server, dynprompt, caches, current_item, extra_data, executed,
             output_data, output_ui, has_subgraph = get_output_from_returns(results, class_def)
         elif unique_id in pending_subgraph_results:
             cached_results = pending_subgraph_results[unique_id]
-            resolved_outputs = []
-            for is_subgraph, result in cached_results:
-                if not is_subgraph:
-                    resolved_outputs.append(result)
-                else:
-                    resolved_output = []
-                    for i, _result in enumerate(result):
-                        if not output_is_list[i]:
-                            if is_link(_result):
-                                source_node, source_output = _result[0], _result[1]
-                                node_cached = execution_list.get_cache(source_node, unique_id)
-                                if node_cached.outputs[source_output]:
-                                    resolved_output.append(node_cached.outputs[source_output][0])
-                            else:
-                                resolved_output.append(_result)
-                        else:
-                            _resolved = []
-                            for output in _result:
-                                if is_link(output):
-                                    source_node, source_output = output[0], output[1]
-                                    node_cached = execution_list.get_cache(source_node, unique_id)
-                                    _resolved.extend(node_cached.outputs[source_output])
-                                else:
-                                    _resolved.append(output)
-                            resolved_output.append(_resolved)
-                    resolved_outputs.append(tuple(resolved_output))
+            resolved_outputs = resolve_subgraph_outputs(cached_results, unique_id, output_is_list, execution_list)
             output_data = merge_result_data(resolved_outputs, class_def)
             output_ui = []
             del pending_subgraph_results[unique_id]
